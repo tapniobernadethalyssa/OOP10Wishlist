@@ -3,23 +3,28 @@ using System.Globalization;
 using System.Windows.Forms;
 using MySql.Data.MySqlClient;
 
+
 namespace Wishlist
 {
     public partial class Form1 : Form
     {
-
+        // XAMPP defaults: user "root", empty password, port 3306.
         private const string ConnectionString =
             "Server=localhost;Port=3306;Database=wishlist_db;Uid=root;Pwd=;";
+
 
         public Form1()
         {
             InitializeComponent();
 
 
+            // Set up the DataGridView columns.
             dataGridView1.Columns.Clear();
 
+
             dataGridView1.Columns.Add("Id", "Id");
-            dataGridView1.Columns["Id"].Visible = false;  
+            dataGridView1.Columns["Id"].Visible = false;   // hidden, used for DELETE
+
 
             dataGridView1.Columns.Add("WishlistName", "Wishlist Name");
             dataGridView1.Columns.Add("Item1", "Item 1");
@@ -27,6 +32,7 @@ namespace Wishlist
             dataGridView1.Columns.Add("Amount", "Amount Range");
 
 
+            // Configure the DataGridView.
             dataGridView1.AllowUserToAddRows = false;
             dataGridView1.ReadOnly = true;
             dataGridView1.MultiSelect = false;
@@ -35,23 +41,33 @@ namespace Wishlist
             dataGridView1.RowHeadersVisible = false;
 
 
+            // Connect the Add button event.
             button1.Click += txtSubmit_Click;
 
 
+            // Connect the right-click event.
             dataGridView1.CellMouseDown += dataGridView1_CellMouseDown;
 
+
+            // Load saved wishlists from the database.
             LoadWishlist();
         }
+
+
+        // Formats a decimal as US currency, e.g. $1,250.00
         private static string FormatAmount(decimal amount)
         {
             return amount.ToString("C2", CultureInfo.GetCultureInfo("en-US"));
         }
 
+
+        // LOAD ALL ROWS FROM THE DATABASE (SELECT)
         private void LoadWishlist()
         {
             try
             {
                 dataGridView1.Rows.Clear();
+
 
                 using (var conn = new MySqlConnection(ConnectionString))
                 using (var cmd = new MySqlCommand(
@@ -59,6 +75,7 @@ namespace Wishlist
                     conn))
                 {
                     conn.Open();
+
 
                     using (var reader = cmd.ExecuteReader())
                     {
@@ -80,8 +97,11 @@ namespace Wishlist
             }
         }
 
+
+        // ADD TO WISHLIST BUTTON (INSERT)
         private void txtSubmit_Click(object sender, EventArgs e)
         {
+            // 1. Validate all input fields.
             if (string.IsNullOrWhiteSpace(textBox1.Text) ||
                 string.IsNullOrWhiteSpace(textBox2.Text) ||
                 string.IsNullOrWhiteSpace(textBox3.Text) ||
@@ -93,10 +113,14 @@ namespace Wishlist
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
 
+
                 return;
             }
 
+
+            // 2. Validate the amount.
             decimal amount;
+
 
             if (!decimal.TryParse(
                 textBox4.Text,
@@ -110,15 +134,20 @@ namespace Wishlist
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
 
+
                 textBox4.Focus();
                 return;
             }
+
 
             string name = textBox1.Text.Trim();
             string item1 = textBox2.Text.Trim();
             string item2 = textBox3.Text.Trim();
 
+
+            // 3. Save to the database.
             long newId;
+
 
             try
             {
@@ -133,6 +162,7 @@ namespace Wishlist
                     cmd.Parameters.AddWithValue("@item2", item2);
                     cmd.Parameters.AddWithValue("@amount", amount);
 
+
                     conn.Open();
                     cmd.ExecuteNonQuery();
                     newId = cmd.LastInsertedId;
@@ -144,16 +174,24 @@ namespace Wishlist
                 return;
             }
 
+
+            // 4. Add the record to the DataGridView.
             dataGridView1.Rows.Add(newId, name, item1, item2, FormatAmount(amount));
 
+
+            // 5. Clear the textboxes after submission.
             textBox1.Clear();
             textBox2.Clear();
             textBox3.Clear();
             textBox4.Clear();
 
+
+            // Return focus to the first textbox.
             textBox1.Focus();
         }
 
+
+        // RIGHT-CLICK EVENT FOR DELETING A ROW (DELETE)
         private void dataGridView1_CellMouseDown(
             object sender,
             DataGridViewCellMouseEventArgs e)
@@ -163,11 +201,14 @@ namespace Wishlist
                 return;
             }
 
+
             dataGridView1.ClearSelection();
             dataGridView1.Rows[e.RowIndex].Selected = true;
 
+
             ContextMenuStrip menu = new ContextMenuStrip();
             ToolStripMenuItem deleteItem = new ToolStripMenuItem("Delete Row");
+
 
             deleteItem.Click += (s, args) =>
             {
@@ -177,12 +218,15 @@ namespace Wishlist
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);
 
+
                 if (result != DialogResult.Yes || e.RowIndex >= dataGridView1.Rows.Count)
                 {
                     return;
                 }
 
+
                 int id = Convert.ToInt32(dataGridView1.Rows[e.RowIndex].Cells["Id"].Value);
+
 
                 try
                 {
@@ -192,9 +236,11 @@ namespace Wishlist
                     {
                         cmd.Parameters.AddWithValue("@id", id);
 
+
                         conn.Open();
                         cmd.ExecuteNonQuery();
                     }
+
 
                     dataGridView1.Rows.RemoveAt(e.RowIndex);
                 }
@@ -204,9 +250,11 @@ namespace Wishlist
                 }
             };
 
+
             menu.Items.Add(deleteItem);
             menu.Show(Cursor.Position);
         }
+
 
         private void ShowDbError(string action, MySqlException ex)
         {
@@ -218,6 +266,7 @@ namespace Wishlist
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
         }
+
 
         private void label1_Click(object sender, EventArgs e) { }
         private void label2_Click(object sender, EventArgs e) { }
